@@ -7,13 +7,27 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "@playwright/test": "^1.59.1",
     "dotenv": "^17.4.2",
     "express": "^4.18.2",
     "express-session": "^1.19.0",
+    "imap-simple": "^5.1.0",
+    "mailparser": "^3.9.8",
     "nodemailer": "^8.0.5",
     "otplib": "^12.0.1",
     "qrcode": "^1.5.4",
     "svg-captcha": "^1.4.0",
     "twilio": "^5.13.1"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sakhakarmiusan/Auth-OTP-MFA-Automation-QA.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/sakhakarmiusan/Auth-OTP-MFA-Automation-QA/issues"
+  },
+  "homepage": "https://github.com/sakhakarmiusan/Auth-OTP-MFA-Automation-QA#readme"
 }
