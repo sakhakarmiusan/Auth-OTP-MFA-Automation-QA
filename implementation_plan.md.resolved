@@ -1,29 +1,42 @@
-# Add CAPTCHA Verification Step to Registration Flow
+# Add Phone Number Registration with SMS OTP
 
-Add a server-side generated CAPTCHA challenge between email OTP verification and MFA authenticator setup.
+Add a toggle on the registration form allowing users to register via **Email** or **Phone Number**. Phone registration sends a real SMS OTP using **Twilio**.
 
-**New registration flow:** Register → Email OTP → **CAPTCHA** → MFA Authenticator Setup
+**Updated flow:** Register (Email or Phone) → OTP Verify → CAPTCHA → MFA Setup
+
+## User Review Required
+
+> [!IMPORTANT]
+> To send real SMS messages, you'll need a **Twilio account** (free trial available at [twilio.com](https://www.twilio.com)).
+> You'll need to provide: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_PHONE_NUMBER` in your [.env](file:///home/usan/home/mystuff/usan/mfa-2/.env).
+> Twilio free trial lets you send SMS to verified phone numbers only.
 
 ## Proposed Changes
 
+### Dependencies
+- Install `twilio` npm package for SMS delivery.
+
 ### Backend
 #### [MODIFY] [server.js](file:///home/usan/home/mystuff/usan/mfa-2/server.js)
-- Install `svg-captcha` package to generate CAPTCHA images server-side (no external API keys needed).
-- Add `GET /api/captcha` — generates a random CAPTCHA, stores the answer in the user's session, and returns the SVG image.
-- Add `POST /api/verify-captcha` — validates the user's answer against the session. On success, proceeds to generate the TOTP secret + QR code (moves this logic out of `/api/verify-email`).
-- Modify `POST /api/verify-email` — on success, mark email as verified in `pendingUsers` but **don't** generate TOTP yet. Instead, respond with `{ success: true, requireCaptcha: true }`.
+- Add Twilio client initialization using env vars.
+- Modify `POST /api/register` to accept an optional `phone` field and a `method` field (`email` or `phone`).
+  - If `method === 'phone'`: send OTP via Twilio SMS instead of email.
+  - If `method === 'email'`: existing email flow (unchanged).
+- Store `method` in `pendingUsers` so `/api/verify-email` knows which method was used.
+
+#### [MODIFY] [.env](file:///home/usan/home/mystuff/usan/mfa-2/.env) and [.env.example](file:///home/usan/home/mystuff/usan/mfa-2/.env.example)
+- Add `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`.
 
 ### Frontend
 #### [MODIFY] [index.html](file:///home/usan/home/mystuff/usan/mfa-2/public/index.html)
-- Add new `view-captcha` section between OTP and MFA setup views, containing a CAPTCHA image, text input, refresh button, and submit button.
+- Add a toggle (two buttons/tabs) on the registration form: "Register with Email" / "Register with Phone".
+- Show email input or phone input based on selection.
 
 #### [MODIFY] [app.js](file:///home/usan/home/mystuff/usan/mfa-2/public/js/app.js)
-- After OTP verification succeeds → load CAPTCHA image and switch to `view-captcha`.
-- On CAPTCHA submit → call `/api/verify-captcha`. On success, show MFA QR code setup.
-- Add a "Refresh CAPTCHA" button handler to reload a new CAPTCHA image.
+- Track which registration method is selected (`email` or `phone`).
+- Send the correct `method` and `phone`/`email` field to `/api/register`.
 
 ## Verification Plan
-- Start the server and register a new user.
-- After OTP verification, confirm the CAPTCHA view appears with an image.
-- Verify wrong CAPTCHA answers show an error.
-- Verify correct CAPTCHA answer proceeds to MFA setup with QR code.
+- Test email registration (unchanged behavior).
+- Test phone registration with a valid Twilio-verified number.
+- Verify OTP → CAPTCHA → MFA flow works for both methods.

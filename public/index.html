@@ -22,7 +22,20 @@
             <div id="view-register" class="view-section active">
                 <div class="header">
                     <h2>Create Account</h2>
-                    <p>Enter your details. Ensure your email is correct to receive the verification code.</p>
+                    <p>Choose how you'd like to register and receive your verification code.</p>
+                </div>
+
+                <!-- Method Toggle Tabs -->
+                <div class="method-toggle"
+                    style="display: flex; gap: 0; margin-bottom: 20px; border-radius: 8px; overflow: hidden; border: 2px solid #6c63ff;">
+                    <button type="button" id="btn-method-email" data-testid="method-email" class="method-btn active"
+                        onclick="setRegMethod('email')"
+                        style="flex:1; padding: 10px; border: none; cursor: pointer; font-weight: 600; font-size: 14px; background: #6c63ff; color: #fff; transition: all 0.2s;">📧
+                        Email</button>
+                    <button type="button" id="btn-method-phone" data-testid="method-phone" class="method-btn"
+                        onclick="setRegMethod('phone')"
+                        style="flex:1; padding: 10px; border: none; cursor: pointer; font-weight: 600; font-size: 14px; background: #fff; color: #6c63ff; transition: all 0.2s;">📱
+                        Phone</button>
                 </div>
 
                 <form id="form-register" data-testid="register-form">
@@ -30,10 +43,15 @@
                         <label for="reg-name">Full Name</label>
                         <input type="text" id="reg-name" data-testid="register-name" placeholder="John Doe" required>
                     </div>
-                    <div class="form-group">
+                    <!-- Email Input (shown for email method) -->
+                    <div class="form-group" id="email-field">
                         <label for="reg-email">Email Address</label>
-                        <input type="email" id="reg-email" data-testid="register-email" placeholder="john@example.com"
-                            required>
+                        <input type="email" id="reg-email" data-testid="register-email" placeholder="john@example.com">
+                    </div>
+                    <!-- Phone Input (shown for phone method) -->
+                    <div class="form-group" id="phone-field" style="display: none;">
+                        <label for="reg-phone">Phone Number</label>
+                        <input type="tel" id="reg-phone" data-testid="register-phone" placeholder="+977 9800000000">
                     </div>
                     <div class="form-group">
                         <label for="reg-password">Password</label>
@@ -57,8 +75,8 @@
             <!-- ================= REGISTER OTP VIEW ================= -->
             <div id="view-register-otp" class="view-section" data-testid="register-otp-section">
                 <div class="header">
-                    <h2>Email Verification</h2>
-                    <p>We've sent a 6-digit code to your email. Check your inbox (and spam folder).</p>
+                    <h2>OTP Verification</h2>
+                    <p>We've sent a 6-digit code to your email or phone. Please enter it below.</p>
                 </div>
 
                 <form id="form-register-otp">
@@ -134,9 +152,9 @@
 
                 <form id="form-login" data-testid="login-form">
                     <div class="form-group">
-                        <label for="login-email">Email Address</label>
-                        <input type="email" id="login-email" data-testid="login-email" placeholder="john@example.com"
-                            required>
+                        <label for="login-email">Email or Phone Number</label>
+                        <input type="text" id="login-email" data-testid="login-email"
+                            placeholder="john@example.com or +977..." required>
                     </div>
                     <div class="form-group">
                         <label for="login-password">Password</label>

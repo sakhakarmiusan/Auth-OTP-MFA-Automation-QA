@@ -7,6 +7,13 @@ const { authenticator } = require('otplib');
 const qrcode = require('qrcode');
 const svgCaptcha = require('svg-captcha');
 
+// Twilio SMS Config
+let twilioClient = null;
+if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+    const twilio = require('twilio');
+    twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -61,53 +68,70 @@ const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString()
 // --- API ROUTES ---
 
 app.post('/api/register', async (req, res) => {
-    const { name, email, password } = req.body;
+    const { name, email, phone, password, method } = req.body;
+    const identifier = method === 'phone' ? phone : email;
 
-    if (users.has(email)) {
-        return res.status(400).json({ error: 'Email already registered.' });
+    if (users.has(identifier)) {
+        return res.status(400).json({ error: `${method === 'phone' ? 'Phone number' : 'Email'} already registered.` });
     }
 
-    const emailOtp = generateOTP();
+    const otp = generateOTP();
 
-    pendingUsers.set(email, {
+    pendingUsers.set(identifier, {
         name,
-        email,
+        email: email || '',
+        phone: phone || '',
         password,
-        emailOtp
+        method,
+        emailOtp: otp
     });
 
-    // Attempt to send email
     try {
-        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-            console.log(`[DEV MODE] Simulated Email Code for ${email}: ${emailOtp}`);
-            return res.json({ success: true, message: 'OTP logged to server console (Add .env for real email)' });
+        if (method === 'phone') {
+            // Send SMS OTP
+            if (!twilioClient || !process.env.TWILIO_PHONE_NUMBER) {
+                console.log(`[DEV MODE] Simulated SMS Code for ${phone}: ${otp}`);
+                return res.json({ success: true, identifier, message: 'OTP logged to server console (Add Twilio config for real SMS)' });
+            }
+
+            await twilioClient.messages.create({
+                body: `Your SecureAuth verification code is: ${otp}`,
+                from: process.env.TWILIO_PHONE_NUMBER,
+                to: phone
+            });
+            res.json({ success: true, identifier, message: 'Verification SMS sent.' });
+        } else {
+            // Send Email OTP
+            if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+                console.log(`[DEV MODE] Simulated Email Code for ${email}: ${otp}`);
+                return res.json({ success: true, identifier, message: 'OTP logged to server console (Add .env for real email)' });
+            }
+
+            await transporter.sendMail({
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: 'Your Registration Verification Code',
+                text: `Your 6-digit email verification code is: ${otp}`
+            });
+            res.json({ success: true, identifier, message: 'Verification email sent.' });
         }
-
-        await transporter.sendMail({
-            from: process.env.EMAIL_USER,
-            to: email,
-            subject: 'Your Registration Verification Code',
-            text: `Your 6-digit email verification code is: ${emailOtp}`
-        });
-
-        res.json({ success: true, message: 'Verification email sent.' });
     } catch (err) {
-        console.error('Email error:', err);
-        res.status(500).json({ error: 'Failed to send email. Check SMTP configuration.' });
+        console.error('OTP send error:', err);
+        res.status(500).json({ error: `Failed to send ${method === 'phone' ? 'SMS' : 'email'}. Check configuration.` });
     }
 });
 
 app.post('/api/verify-email', async (req, res) => {
-    const { email, otp } = req.body;
-    const pending = pendingUsers.get(email);
+    const { identifier, otp } = req.body;
+    const pending = pendingUsers.get(identifier);
 
     if (!pending || pending.emailOtp !== otp) {
         return res.status(400).json({ error: 'Invalid or expired OTP.' });
     }
 
-    // Email verified — mark it, but wait for CAPTCHA before generating TOTP
+    // OTP verified — mark it, but wait for CAPTCHA before generating TOTP
     pending.emailVerified = true;
-    res.json({ success: true, requireCaptcha: true, message: 'Email verified. Please complete the CAPTCHA.' });
+    res.json({ success: true, requireCaptcha: true, message: 'OTP verified. Please complete the CAPTCHA.' });
 });
 
 // --- CAPTCHA ENDPOINTS ---
@@ -124,11 +148,11 @@ app.get('/api/captcha', (req, res) => {
 });
 
 app.post('/api/verify-captcha', async (req, res) => {
-    const { email, captchaAnswer } = req.body;
-    const pending = pendingUsers.get(email);
+    const { identifier, captchaAnswer } = req.body;
+    const pending = pendingUsers.get(identifier);
 
     if (!pending || !pending.emailVerified) {
-        return res.status(400).json({ error: 'Email not verified yet.' });
+        return res.status(400).json({ error: 'OTP not verified yet.' });
     }
 
     if (!req.session.captchaText || req.session.captchaText.toLowerCase() !== captchaAnswer.toLowerCase()) {
@@ -136,23 +160,24 @@ app.post('/api/verify-captcha', async (req, res) => {
     }
 
     // CAPTCHA passed — now generate TOTP secret for Authenticator
-    req.session.captchaText = null; // Clear used captcha
+    req.session.captchaText = null;
     const secret = authenticator.generateSecret();
-    const otpauth = authenticator.keyuri(email, 'SecureAuthApp', secret);
+    const userIdentifier = pending.email || pending.phone;
+    const otpauth = authenticator.keyuri(userIdentifier, 'SecureAuthApp', secret);
 
     try {
         const qrCodeDataUrl = await qrcode.toDataURL(otpauth);
 
-        // Finalize user registration
         const newUser = {
             name: pending.name,
             email: pending.email,
+            phone: pending.phone,
             password: pending.password,
             totpSecret: secret
         };
 
-        users.set(email, newUser);
-        pendingUsers.delete(email);
+        users.set(identifier, newUser);
+        pendingUsers.delete(identifier);
 
         res.json({
             success: true,
@@ -166,21 +191,21 @@ app.post('/api/verify-captcha', async (req, res) => {
 });
 
 app.post('/api/login', (req, res) => {
-    const { email, password } = req.body;
-    const user = users.get(email);
+    const { identifier, password } = req.body;
+    const user = users.get(identifier);
 
     if (!user || user.password !== password) {
-        return res.status(401).json({ error: 'Invalid email or password.' });
+        return res.status(401).json({ error: 'Invalid credentials.' });
     }
 
     // Save pending MFA state into session
-    req.session.pendingMfaEmail = email;
+    req.session.pendingMfaIdentifier = identifier;
     res.json({ success: true, requireMfa: true });
 });
 
 app.post('/api/verify-mfa', (req, res) => {
-    const { email, mfaCode } = req.body;
-    const user = users.get(email);
+    const { identifier, mfaCode } = req.body;
+    const user = users.get(identifier);
 
     if (!user) {
         return res.status(400).json({ error: 'User not found.' });
@@ -191,12 +216,12 @@ app.post('/api/verify-mfa', (req, res) => {
         return res.status(401).json({ error: 'Invalid Authenticator code.' });
     }
 
-    // Success! Ensure user is logged in
     req.session.loggedInUser = {
         name: user.name,
-        email: user.email
+        email: user.email,
+        phone: user.phone
     };
-    req.session.pendingMfaEmail = null;
+    req.session.pendingMfaIdentifier = null;
 
     res.json({ success: true, user: req.session.loggedInUser });
 });

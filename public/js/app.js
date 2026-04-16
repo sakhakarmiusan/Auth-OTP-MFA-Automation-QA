@@ -1,6 +1,7 @@
 // --- STATE MANAGEMENT ---
 const state = {
-    pendingEmail: '',
+    pendingIdentifier: '',
+    regMethod: 'email',
     loggedInUser: null
 };
 
@@ -35,6 +36,35 @@ function switchView(viewId) {
     document.getElementById(viewId).classList.add('active');
 }
 
+// --- REGISTRATION METHOD TOGGLE ---
+function setRegMethod(method) {
+    state.regMethod = method;
+    const emailField = document.getElementById('email-field');
+    const phoneField = document.getElementById('phone-field');
+    const emailBtn = document.getElementById('btn-method-email');
+    const phoneBtn = document.getElementById('btn-method-phone');
+
+    if (method === 'phone') {
+        emailField.style.display = 'none';
+        phoneField.style.display = 'block';
+        document.getElementById('reg-email').removeAttribute('required');
+        document.getElementById('reg-phone').setAttribute('required', 'true');
+        emailBtn.style.background = '#fff';
+        emailBtn.style.color = '#6c63ff';
+        phoneBtn.style.background = '#6c63ff';
+        phoneBtn.style.color = '#fff';
+    } else {
+        emailField.style.display = 'block';
+        phoneField.style.display = 'none';
+        document.getElementById('reg-email').setAttribute('required', 'true');
+        document.getElementById('reg-phone').removeAttribute('required');
+        emailBtn.style.background = '#6c63ff';
+        emailBtn.style.color = '#fff';
+        phoneBtn.style.background = '#fff';
+        phoneBtn.style.color = '#6c63ff';
+    }
+}
+
 // --- API HELPERS ---
 async function apiCall(url, data) {
     const response = await fetch(url, {
@@ -56,24 +86,37 @@ document.getElementById('form-register').addEventListener('submit', async functi
     e.preventDefault();
     const name = document.getElementById('reg-name').value;
     const email = document.getElementById('reg-email').value;
+    const phone = document.getElementById('reg-phone').value;
     const password = document.getElementById('reg-password').value;
     const confirm = document.getElementById('reg-confirm').value;
+    const method = state.regMethod;
 
     if (password !== confirm) {
         showError("Passwords do not match.");
         return;
     }
 
+    if (method === 'phone' && !phone) {
+        showError("Please enter your phone number.");
+        return;
+    }
+    if (method === 'email' && !email) {
+        showError("Please enter your email address.");
+        return;
+    }
+
     const btn = document.getElementById('btn-register-submit');
-    btn.textContent = 'Sending Email...';
+    btn.textContent = method === 'phone' ? 'Sending SMS...' : 'Sending Email...';
     btn.disabled = true;
 
     try {
-        await apiCall('/api/register', { name, email, password });
-        state.pendingEmail = email;
+        const data = await apiCall('/api/register', { name, email, phone, password, method });
+        state.pendingIdentifier = data.identifier;
         document.getElementById('reg-otp-input').value = '';
         switchView('view-register-otp');
-        showSuccess("Verification email has been sent to your inbox.");
+        showSuccess(method === 'phone'
+            ? "Verification SMS has been sent to your phone."
+            : "Verification email has been sent to your inbox.");
     } catch (err) {
         showError(err.message);
     } finally {
@@ -82,7 +125,7 @@ document.getElementById('form-register').addEventListener('submit', async functi
     }
 });
 
-// 2. REGISTRATION OTP SUBMIT (VERIFY EMAIL)
+// 2. REGISTRATION OTP SUBMIT (VERIFY OTP)
 document.getElementById('form-register-otp').addEventListener('submit', async function (e) {
     e.preventDefault();
     const otp = document.getElementById('reg-otp-input').value;
@@ -92,10 +135,9 @@ document.getElementById('form-register-otp').addEventListener('submit', async fu
     btn.disabled = true;
 
     try {
-        const data = await apiCall('/api/verify-email', { email: state.pendingEmail, otp });
+        const data = await apiCall('/api/verify-email', { identifier: state.pendingIdentifier, otp });
 
         if (data.requireCaptcha) {
-            // Load CAPTCHA and switch to CAPTCHA view
             await loadCaptcha();
             switchView('view-captcha');
             showSuccess(data.message);
@@ -103,7 +145,7 @@ document.getElementById('form-register-otp').addEventListener('submit', async fu
     } catch (err) {
         showError(err.message);
     } finally {
-        btn.textContent = 'Verify Email';
+        btn.textContent = 'Verify OTP';
         btn.disabled = false;
     }
 });
@@ -136,7 +178,7 @@ document.getElementById('form-captcha').addEventListener('submit', async functio
     btn.disabled = true;
 
     try {
-        const data = await apiCall('/api/verify-captcha', { email: state.pendingEmail, captchaAnswer });
+        const data = await apiCall('/api/verify-captcha', { identifier: state.pendingIdentifier, captchaAnswer });
 
         // Show MFA QR Code Setup Page
         document.getElementById('mfa-qr-code').src = data.qrCodeUrl;
@@ -145,10 +187,9 @@ document.getElementById('form-captcha').addEventListener('submit', async functio
         showSuccess(data.message);
 
         // Pre-fill login for convenience
-        document.getElementById('login-email').value = state.pendingEmail;
+        document.getElementById('login-email').value = state.pendingIdentifier;
     } catch (err) {
         showError(err.message);
-        // Reload a fresh CAPTCHA on failure
         await loadCaptcha();
     } finally {
         btn.textContent = 'Verify CAPTCHA';
@@ -159,7 +200,7 @@ document.getElementById('form-captcha').addEventListener('submit', async functio
 // 3. LOGIN FORM SUBMIT
 document.getElementById('form-login').addEventListener('submit', async function (e) {
     e.preventDefault();
-    const email = document.getElementById('login-email').value;
+    const identifier = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
     const btn = document.getElementById('btn-login-submit');
 
@@ -167,9 +208,9 @@ document.getElementById('form-login').addEventListener('submit', async function 
     btn.disabled = true;
 
     try {
-        const data = await apiCall('/api/login', { email, password });
+        const data = await apiCall('/api/login', { identifier, password });
         if (data.requireMfa) {
-            state.pendingEmail = email;
+            state.pendingIdentifier = identifier;
             document.getElementById('mfa-otp-input').value = '';
             switchView('view-mfa');
             showSuccess("Password valid. Please enter Authenticator code.");
@@ -192,7 +233,7 @@ document.getElementById('form-mfa').addEventListener('submit', async function (e
     btn.disabled = true;
 
     try {
-        const data = await apiCall('/api/verify-mfa', { email: state.pendingEmail, mfaCode });
+        const data = await apiCall('/api/verify-mfa', { identifier: state.pendingIdentifier, mfaCode });
 
         // Successful Login
         state.loggedInUser = data.user;
@@ -214,9 +255,9 @@ document.getElementById('btn-logout').addEventListener('click', async function (
         document.getElementById('form-login').reset();
         document.getElementById('form-register').reset();
 
-        // Retain email
-        if (state.pendingEmail) {
-            document.getElementById('login-email').value = state.pendingEmail;
+        // Retain identifier
+        if (state.pendingIdentifier) {
+            document.getElementById('login-email').value = state.pendingIdentifier;
         }
 
         switchView('view-login');
@@ -229,7 +270,7 @@ document.getElementById('btn-logout').addEventListener('click', async function (
 function populateDashboard(user) {
     document.getElementById('dash-welcome').textContent = `✅ Login Successful — Welcome, ${user.name}!`;
     document.getElementById('dash-name').textContent = user.name;
-    document.getElementById('dash-email').textContent = user.email;
+    document.getElementById('dash-email').textContent = user.email || user.phone || '';
     document.getElementById('dash-avatar').textContent = user.name.charAt(0).toUpperCase();
 }
 
@@ -240,7 +281,7 @@ window.addEventListener('load', async function () {
         if (response.ok) {
             const data = await response.json();
             state.loggedInUser = data.user;
-            state.pendingEmail = data.user.email;
+            state.pendingIdentifier = data.user.email || data.user.phone;
             populateDashboard(data.user);
             switchView('view-dashboard');
         }
