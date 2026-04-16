@@ -16,15 +16,24 @@
     --otp-text: #854d0e;
 }
 
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
 body {
     margin: 0;
     padding: 0;
     min-height: 100vh;
     background-color: var(--bg-color);
+    background-image: radial-gradient(1200px 700px at 15% 10%, rgba(79, 70, 229, 0.18), transparent 55%),
+        radial-gradient(900px 500px at 85% 20%, rgba(16, 185, 129, 0.12), transparent 60%);
     display: flex;
     align-items: center;
     justify-content: center;
     font-family: 'Inter', sans-serif;
+    color: var(--text-dark);
 }
 
 .container {
@@ -41,7 +50,7 @@ body {
     width: 100%;
     position: relative;
     overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(17, 24, 39, 0.08);
 }
 
 .header {
@@ -105,6 +114,11 @@ button {
     transition: background-color 0.2s ease, transform 0.1s ease;
 }
 
+button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
 button:hover {
     background-color: var(--primary-hover);
 }
@@ -150,18 +164,20 @@ button.outline:hover {
     display: none;
 }
 
+.message-box.visible {
+    display: block;
+}
+
 .message-box.error {
     background-color: var(--error-bg);
     color: var(--error-text);
     border: 1px solid var(--error-border);
-    display: block;
 }
 
 .message-box.success {
     background-color: var(--success-bg);
     color: var(--success-text);
     border: 1px solid var(--success-border);
-    display: block;
 }
 
 .info-box {
@@ -196,6 +212,26 @@ button.outline:hover {
 .view-section.active {
     display: block;
     opacity: 1;
+}
+
+.mfa-qr {
+    display: block;
+    margin: 0 auto;
+    width: min(220px, 70vw);
+    height: auto;
+    aspect-ratio: 1 / 1;
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    background: #fff;
+}
+
+.mfa-secret {
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    overflow-wrap: anywhere;
+    margin: 12px 0 0;
 }
 
 .dashboard-card {
@@ -239,4 +275,44 @@ button.outline:hover {
 
 #error-container, #success-container {
     margin-top: 16px;
+}
+
+@media (max-width: 480px) {
+    body {
+        align-items: stretch;
+    }
+
+    .container {
+        max-width: 100%;
+        padding: 16px;
+        display: flex;
+        align-items: center;
+        min-height: 100vh;
+    }
+
+    .card {
+        padding: 20px;
+        border-radius: 14px;
+    }
+
+    .header h2 {
+        font-size: 20px;
+    }
+
+    .form-group input {
+        padding: 12px 14px;
+        font-size: 16px; /* better mobile zoom behavior */
+    }
+
+    button {
+        padding: 12px 14px;
+        font-size: 16px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition: none !important;
+        scroll-behavior: auto !important;
+    }
 }

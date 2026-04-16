@@ -94,6 +94,50 @@ document.getElementById('form-register-otp').addEventListener('submit', async fu
     try {
         const data = await apiCall('/api/verify-email', { email: state.pendingEmail, otp });
 
+        if (data.requireCaptcha) {
+            // Load CAPTCHA and switch to CAPTCHA view
+            await loadCaptcha();
+            switchView('view-captcha');
+            showSuccess(data.message);
+        }
+    } catch (err) {
+        showError(err.message);
+    } finally {
+        btn.textContent = 'Verify Email';
+        btn.disabled = false;
+    }
+});
+
+// 2.5 CAPTCHA HELPERS
+async function loadCaptcha() {
+    try {
+        const response = await fetch('/api/captcha');
+        const data = await response.json();
+        document.getElementById('captcha-image').innerHTML = data.captchaSvg;
+        document.getElementById('captcha-input').value = '';
+    } catch (err) {
+        showError('Failed to load CAPTCHA.');
+    }
+}
+
+// REFRESH CAPTCHA
+document.getElementById('btn-refresh-captcha').addEventListener('click', async function () {
+    await loadCaptcha();
+    showSuccess('New CAPTCHA loaded.');
+});
+
+// CAPTCHA FORM SUBMIT
+document.getElementById('form-captcha').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const captchaAnswer = document.getElementById('captcha-input').value;
+    const btn = document.getElementById('btn-captcha-verify');
+
+    btn.textContent = 'Verifying...';
+    btn.disabled = true;
+
+    try {
+        const data = await apiCall('/api/verify-captcha', { email: state.pendingEmail, captchaAnswer });
+
         // Show MFA QR Code Setup Page
         document.getElementById('mfa-qr-code').src = data.qrCodeUrl;
         document.getElementById('mfa-secret-text').textContent = 'Manual Code: ' + data.secret;
@@ -104,8 +148,10 @@ document.getElementById('form-register-otp').addEventListener('submit', async fu
         document.getElementById('login-email').value = state.pendingEmail;
     } catch (err) {
         showError(err.message);
+        // Reload a fresh CAPTCHA on failure
+        await loadCaptcha();
     } finally {
-        btn.textContent = 'Verify Email';
+        btn.textContent = 'Verify CAPTCHA';
         btn.disabled = false;
     }
 });

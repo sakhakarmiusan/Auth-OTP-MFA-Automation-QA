@@ -5,6 +5,7 @@ const session = require('express-session');
 const nodemailer = require('nodemailer');
 const { authenticator } = require('otplib');
 const qrcode = require('qrcode');
+const svgCaptcha = require('svg-captcha');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -104,7 +105,38 @@ app.post('/api/verify-email', async (req, res) => {
         return res.status(400).json({ error: 'Invalid or expired OTP.' });
     }
 
-    // Email is verified. Now generate TOTP secret for Authenticator
+    // Email verified — mark it, but wait for CAPTCHA before generating TOTP
+    pending.emailVerified = true;
+    res.json({ success: true, requireCaptcha: true, message: 'Email verified. Please complete the CAPTCHA.' });
+});
+
+// --- CAPTCHA ENDPOINTS ---
+
+app.get('/api/captcha', (req, res) => {
+    const captcha = svgCaptcha.create({
+        size: 5,
+        noise: 3,
+        color: true,
+        background: '#f0f0f0'
+    });
+    req.session.captchaText = captcha.text;
+    res.json({ success: true, captchaSvg: captcha.data });
+});
+
+app.post('/api/verify-captcha', async (req, res) => {
+    const { email, captchaAnswer } = req.body;
+    const pending = pendingUsers.get(email);
+
+    if (!pending || !pending.emailVerified) {
+        return res.status(400).json({ error: 'Email not verified yet.' });
+    }
+
+    if (!req.session.captchaText || req.session.captchaText.toLowerCase() !== captchaAnswer.toLowerCase()) {
+        return res.status(400).json({ error: 'Incorrect CAPTCHA. Please try again.' });
+    }
+
+    // CAPTCHA passed — now generate TOTP secret for Authenticator
+    req.session.captchaText = null; // Clear used captcha
     const secret = authenticator.generateSecret();
     const otpauth = authenticator.keyuri(email, 'SecureAuthApp', secret);
 
@@ -115,7 +147,7 @@ app.post('/api/verify-email', async (req, res) => {
         const newUser = {
             name: pending.name,
             email: pending.email,
-            password: pending.password, // In prod, NEVER store plaintext
+            password: pending.password,
             totpSecret: secret
         };
 
@@ -124,7 +156,7 @@ app.post('/api/verify-email', async (req, res) => {
 
         res.json({
             success: true,
-            message: 'Email verified. Please scan the QR code to setup your Authenticator app.',
+            message: 'CAPTCHA verified! Please scan the QR code to setup your Authenticator app.',
             qrCodeUrl: qrCodeDataUrl,
             secret: secret
         });

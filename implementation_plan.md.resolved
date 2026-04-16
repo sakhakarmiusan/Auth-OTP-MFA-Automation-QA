@@ -1,49 +1,29 @@
-# Implementation Plan: Email & Google Authenticator Integration
+# Add CAPTCHA Verification Step to Registration Flow
 
-We will build a real Node.js backend to handle authentic email sending and Google Authenticator setup.
+Add a server-side generated CAPTCHA challenge between email OTP verification and MFA authenticator setup.
 
-## User Review Required
-
-> [!CAUTION]
-> **Real Email Setup:** To send a real email, we need to use a real SMTP server. I will set up the code to use a Gmail account. You will need to create a `.env` file and provide your own Gmail address and a Gmail "App Password" (which you must generate from your Google Account settings). Without this, the server cannot send actual emails.
-> 
-> **Authenticator Support:** To use Google Authenticator, a user must first **scan a QR code** the first time they log in or register. I will add a new step to show this QR code immediately after Email Verification.
-> 
-> Please confirm if you are comfortable providing your own Gmail credentials in a `.env` file (which stays entirely on your local machine) for testing this out.
+**New registration flow:** Register → Email OTP → **CAPTCHA** → MFA Authenticator Setup
 
 ## Proposed Changes
 
-### Backend Setup
-#### [MODIFY] package.json
-- Add dependencies: `nodemailer` (for emails), `dotenv` (for loading `.env` variables), `otplib` (for Google Authenticator logic), `qrcode` (for drawing the QR code to scan).
+### Backend
+#### [MODIFY] [server.js](file:///home/usan/home/mystuff/usan/mfa-2/server.js)
+- Install `svg-captcha` package to generate CAPTCHA images server-side (no external API keys needed).
+- Add `GET /api/captcha` — generates a random CAPTCHA, stores the answer in the user's session, and returns the SVG image.
+- Add `POST /api/verify-captcha` — validates the user's answer against the session. On success, proceeds to generate the TOTP secret + QR code (moves this logic out of `/api/verify-email`).
+- Modify `POST /api/verify-email` — on success, mark email as verified in `pendingUsers` but **don't** generate TOTP yet. Instead, respond with `{ success: true, requireCaptcha: true }`.
 
-#### [MODIFY] server.js
-- Add endpoints: 
-  - `POST /api/register` (creates user, sends real email OTP using Nodemailer)
-  - `POST /api/verify-email` (verifies email OTP, provisions a TOTP secret via `otplib`, generates QR Code with `qrcode`)
-  - `POST /api/login` (checks password, prompts MFA)
-  - `POST /api/verify-mfa` (checks the standard 6-digit TOTP code)
+### Frontend
+#### [MODIFY] [index.html](file:///home/usan/home/mystuff/usan/mfa-2/public/index.html)
+- Add new `view-captcha` section between OTP and MFA setup views, containing a CAPTCHA image, text input, refresh button, and submit button.
 
-#### [NEW] .env.example
-- A template file showing how you should configure your email.
-
----
-
-### Frontend Setup
-#### [MODIFY] public/index.html
-- Remove the yellow boxes labeled "Simulated Email Code".
-- Add a new "MFA Setup" section to display the generated QR Code to the user so they can scan it with their Google Authenticator app.
-
-#### [MODIFY] public/js/app.js
-- Replace `localStorage` mock logic with `fetch()` calls pointing to our new Express endpoints.
-- Manage tracking the session / JWT returned by the backend.
+#### [MODIFY] [app.js](file:///home/usan/home/mystuff/usan/mfa-2/public/js/app.js)
+- After OTP verification succeeds → load CAPTCHA image and switch to `view-captcha`.
+- On CAPTCHA submit → call `/api/verify-captcha`. On success, show MFA QR code setup.
+- Add a "Refresh CAPTCHA" button handler to reload a new CAPTCHA image.
 
 ## Verification Plan
-
-### Manual Verification
-1. Open the `.env` file and fill in actual Gmail credentials.
-2. Run `npm start`.
-3. Open the app in the browser. Register with a real email account.
-4. Check the inbox of that real email account and enter the code.
-5. Scan the resulting QR code with the Google Authenticator app on your phone.
-6. Check that logging in validates the code perfectly against the phone's live code.
+- Start the server and register a new user.
+- After OTP verification, confirm the CAPTCHA view appears with an image.
+- Verify wrong CAPTCHA answers show an error.
+- Verify correct CAPTCHA answer proceeds to MFA setup with QR code.
