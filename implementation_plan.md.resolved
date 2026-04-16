@@ -1,0 +1,49 @@
+# Implementation Plan: Email & Google Authenticator Integration
+
+We will build a real Node.js backend to handle authentic email sending and Google Authenticator setup.
+
+## User Review Required
+
+> [!CAUTION]
+> **Real Email Setup:** To send a real email, we need to use a real SMTP server. I will set up the code to use a Gmail account. You will need to create a `.env` file and provide your own Gmail address and a Gmail "App Password" (which you must generate from your Google Account settings). Without this, the server cannot send actual emails.
+> 
+> **Authenticator Support:** To use Google Authenticator, a user must first **scan a QR code** the first time they log in or register. I will add a new step to show this QR code immediately after Email Verification.
+> 
+> Please confirm if you are comfortable providing your own Gmail credentials in a `.env` file (which stays entirely on your local machine) for testing this out.
+
+## Proposed Changes
+
+### Backend Setup
+#### [MODIFY] package.json
+- Add dependencies: `nodemailer` (for emails), `dotenv` (for loading `.env` variables), `otplib` (for Google Authenticator logic), `qrcode` (for drawing the QR code to scan).
+
+#### [MODIFY] server.js
+- Add endpoints: 
+  - `POST /api/register` (creates user, sends real email OTP using Nodemailer)
+  - `POST /api/verify-email` (verifies email OTP, provisions a TOTP secret via `otplib`, generates QR Code with `qrcode`)
+  - `POST /api/login` (checks password, prompts MFA)
+  - `POST /api/verify-mfa` (checks the standard 6-digit TOTP code)
+
+#### [NEW] .env.example
+- A template file showing how you should configure your email.
+
+---
+
+### Frontend Setup
+#### [MODIFY] public/index.html
+- Remove the yellow boxes labeled "Simulated Email Code".
+- Add a new "MFA Setup" section to display the generated QR Code to the user so they can scan it with their Google Authenticator app.
+
+#### [MODIFY] public/js/app.js
+- Replace `localStorage` mock logic with `fetch()` calls pointing to our new Express endpoints.
+- Manage tracking the session / JWT returned by the backend.
+
+## Verification Plan
+
+### Manual Verification
+1. Open the `.env` file and fill in actual Gmail credentials.
+2. Run `npm start`.
+3. Open the app in the browser. Register with a real email account.
+4. Check the inbox of that real email account and enter the code.
+5. Scan the resulting QR code with the Google Authenticator app on your phone.
+6. Check that logging in validates the code perfectly against the phone's live code.

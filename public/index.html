@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Authentication App (Real Backend)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="card">
+
+            <!-- Global Messages -->
+            <div id="error-message" class="message-box error" data-testid="error-message"></div>
+            <div id="success-message" class="message-box success" data-testid="success-message"></div>
+
+            <!-- ================= REGISTER VIEW ================= -->
+            <div id="view-register" class="view-section active">
+                <div class="header">
+                    <h2>Create Account</h2>
+                    <p>Enter your details. Ensure your email is correct to receive the verification code.</p>
+                </div>
+
+                <form id="form-register" data-testid="register-form">
+                    <div class="form-group">
+                        <label for="reg-name">Full Name</label>
+                        <input type="text" id="reg-name" data-testid="register-name" placeholder="John Doe" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-email">Email Address</label>
+                        <input type="email" id="reg-email" data-testid="register-email" placeholder="john@example.com"
+                            required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-password">Password</label>
+                        <input type="password" id="reg-password" data-testid="register-password" placeholder="••••••••"
+                            required minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-confirm">Confirm Password</label>
+                        <input type="password" id="reg-confirm" data-testid="register-confirm-password"
+                            placeholder="••••••••" required minlength="6">
+                    </div>
+
+                    <button type="submit" data-testid="register-submit" id="btn-register-submit">Register</button>
+                </form>
+
+                <div class="text-center">
+                    Already have an account? <a href="#" onclick="switchView('view-login'); return false;">Log In</a>
+                </div>
+            </div>
+
+            <!-- ================= REGISTER OTP VIEW ================= -->
+            <div id="view-register-otp" class="view-section" data-testid="register-otp-section">
+                <div class="header">
+                    <h2>Email Verification</h2>
+                    <p>We've sent a 6-digit code to your email. Check your inbox (and spam folder).</p>
+                </div>
+
+                <form id="form-register-otp">
+                    <div class="form-group">
+                        <label for="reg-otp-input">Verification Code</label>
+                        <input type="text" id="reg-otp-input" data-testid="register-otp-input"
+                            placeholder="Enter 6-digit code" maxlength="6" pattern="\d{6}" required>
+                    </div>
+
+                    <button type="submit" id="btn-reg-otp-verify" data-testid="register-otp-submit">Verify
+                        Email</button>
+                </form>
+
+                <div class="text-center">
+                    <a href="#" onclick="switchView('view-register'); return false;">Back to Registration</a>
+                </div>
+            </div>
+
+            <!-- ================= MFA SETUP VIEW ================= -->
+            <div id="view-setup-mfa" class="view-section" data-testid="setup-mfa-section">
+                <div class="header">
+                    <h2>Setup Authenticator</h2>
+                    <p>Scan the QR Code below with Google Authenticator or an equivalent app.</p>
+                </div>
+
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <img id="mfa-qr-code" src="" alt="MFA QR Code" width="200" height="200"
+                        style="border: 2px solid #e5e7eb; border-radius: 8px;">
+                </div>
+
+                <p style="text-align: center; font-size: 13px; color: #6b7280; font-family: monospace;"
+                    id="mfa-secret-text"></p>
+
+                <button type="button" onclick="switchView('view-login');" id="btn-finish-setup"
+                    data-testid="finish-setup-submit">I Have Scanned It - Go to Login</button>
+            </div>
+
+            <!-- ================= LOGIN VIEW ================= -->
+            <div id="view-login" class="view-section">
+                <div class="header">
+                    <h2>Welcome Back</h2>
+                    <p>Enter your credentials to log in</p>
+                </div>
+
+                <form id="form-login" data-testid="login-form">
+                    <div class="form-group">
+                        <label for="login-email">Email Address</label>
+                        <input type="email" id="login-email" data-testid="login-email" placeholder="john@example.com"
+                            required>
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">Password</label>
+                        <input type="password" id="login-password" data-testid="login-password" placeholder="••••••••"
+                            required>
+                    </div>
+
+                    <button type="submit" data-testid="login-submit" id="btn-login-submit">Log In</button>
+                </form>
+
+                <div class="text-center">
+                    Don't have an account? <a href="#" onclick="switchView('view-register'); return false;">Register</a>
+                </div>
+            </div>
+
+            <!-- ================= MFA VIEW ================= -->
+            <div id="view-mfa" class="view-section" data-testid="mfa-section">
+                <div class="header">
+                    <h2>Two-Factor Authentication</h2>
+                    <p>Open your Authenticator app and enter the 6-digit code.</p>
+                </div>
+
+                <form id="form-mfa">
+                    <div class="form-group">
+                        <label for="mfa-otp-input">Authenticator Code</label>
+                        <input type="text" id="mfa-otp-input" data-testid="mfa-otp-input"
+                            placeholder="Enter 6-digit code" maxlength="6" pattern="\d{6}" required>
+                    </div>
+
+                    <button type="submit" id="btn-mfa-verify" data-testid="mfa-submit">Verify & Log In</button>
+                </form>
+
+                <div class="text-center">
+                    <a href="#" onclick="switchView('view-login'); return false;">Back to Login</a>
+                </div>
+            </div>
+
+            <!-- ================= DASHBOARD VIEW ================= -->
+            <div id="view-dashboard" class="view-section" data-testid="dashboard">
+                <div class="dashboard-card">
+                    <div class="avatar" id="dash-avatar">J</div>
+                    <div class="header">
+                        <h2 id="dash-welcome">✅ Login Successful</h2>
+                        <p>Welcome to your secure dashboard</p>
+                    </div>
+
+                    <div class="dashboard-info">
+                        <p><strong>Name:</strong> <span id="dash-name" data-testid="dashboard-username"></span></p>
+                        <p><strong>Email:</strong> <span id="dash-email" data-testid="dashboard-email"></span></p>
+                    </div>
+
+                    <button type="button" id="btn-logout" data-testid="logout-btn">Log Out</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+
+</html>

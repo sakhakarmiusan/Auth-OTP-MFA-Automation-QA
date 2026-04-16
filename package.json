@@ -1,0 +1,17 @@
+{
+  "name": "secure-auth-app",
+  "version": "1.0.0",
+  "description": "Secure authentication app with static files served by Express",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^4.18.2",
+    "express-session": "^1.19.0",
+    "nodemailer": "^8.0.5",
+    "otplib": "^12.0.1",
+    "qrcode": "^1.5.4"
+  }
+}
