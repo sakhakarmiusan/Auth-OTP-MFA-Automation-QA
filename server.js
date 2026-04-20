@@ -62,6 +62,16 @@ if (service === 'outlook' || service === 'hotmail') {
 
 const transporter = nodemailer.createTransport(transporterConfig);
 
+// Verify email transporter on startup
+const isEmailConfigured = !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
+if (isEmailConfigured) {
+    transporter.verify()
+        .then(() => console.log('✅ Email transporter verified — real emails will be sent.'))
+        .catch((err) => console.error('❌ Email transporter verification FAILED:', err.message));
+} else {
+    console.warn('⚠️  EMAIL_USER or EMAIL_PASS is not set. Running in DEV MODE — emails will be simulated (logged to console only).');
+}
+
 // Helper to generate 6-digit OTP
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -102,17 +112,39 @@ app.post('/api/register', async (req, res) => {
             res.json({ success: true, identifier, message: 'Verification SMS sent.' });
         } else {
             // Send Email OTP
-            if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+            if (!isEmailConfigured) {
                 console.log(`[DEV MODE] Simulated Email Code for ${email}: ${otp}`);
                 return res.json({ success: true, identifier, message: 'OTP logged to server console (Add .env for real email)' });
             }
 
-            await transporter.sendMail({
-                from: process.env.EMAIL_USER,
-                to: email,
-                subject: 'Your Registration Verification Code',
-                text: `Your 6-digit email verification code is: ${otp}`
-            });
+            // Retry logic for consistent email delivery
+            const maxRetries = 3;
+            let lastError = null;
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    await transporter.sendMail({
+                        from: process.env.EMAIL_USER,
+                        to: email,
+                        subject: 'Your Registration Verification Code',
+                        text: `Your 6-digit email verification code is: ${otp}`
+                    });
+                    console.log(`✅ Email sent to ${email} on attempt ${attempt}`);
+                    lastError = null;
+                    break;
+                } catch (sendErr) {
+                    lastError = sendErr;
+                    console.warn(`⚠️  Email send attempt ${attempt}/${maxRetries} failed: ${sendErr.message}`);
+                    if (attempt < maxRetries) {
+                        await new Promise(r => setTimeout(r, 2000)); // wait 2s before retry
+                    }
+                }
+            }
+
+            if (lastError) {
+                console.error('❌ All email send attempts failed:', lastError.message);
+                return res.status(500).json({ error: 'Failed to send email after multiple attempts. Check configuration.' });
+            }
+
             res.json({ success: true, identifier, message: 'Verification email sent.' });
         }
     } catch (err) {

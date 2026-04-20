@@ -29,5 +29,10 @@
   "bugs": {
     "url": "https://github.com/sakhakarmiusan/Auth-OTP-MFA-Automation-QA/issues"
   },
-  "homepage": "https://github.com/sakhakarmiusan/Auth-OTP-MFA-Automation-QA#readme"
+  "homepage": "https://github.com/sakhakarmiusan/Auth-OTP-MFA-Automation-QA#readme",
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  }
 }
