@@ -1,11 +1,11 @@
-import * as imapSimple from 'imap-simple';
-import { simpleParser } from 'mailparser';
+const imapSimple = require('imap-simple');
+const { simpleParser } = require('mailparser');
 
 // Gmail IMAP configuration
 function getImapConfig() {
     return {
         imap: {
-            user: process.env.GMAIL_USER,
+            user: process.env.GMAIL_USER,           //test gmail
             password: process.env.GMAIL_APP_PASSWORD,
             host: 'imap.gmail.com',                 // gmail imap server
             port: 993,                              // gmail imap port
@@ -13,7 +13,8 @@ function getImapConfig() {
             tlsOptions: {
                 rejectUnauthorized: false             // avoids SSL errors
             },
-            authTimeout: 10000                      // wait 10s to connect
+            authTimeout: 30000,    // ← increase to 30 seconds
+            connTimeout: 30000,    // ← add connection timeout
         }
     };
 }
@@ -85,4 +86,4 @@ async function getOTPFromGmail(recipientEmail, retries = 10) {
     throw new Error('❌ OTP email not received within timeout period');
 }
 
-export { getOTPFromGmail };
+module.exports = { getOTPFromGmail };
