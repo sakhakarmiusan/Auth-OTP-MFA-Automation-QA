@@ -22,7 +22,7 @@ function getImapConfig() {
 // Main function to get OTP from Gmail
 async function getOTPFromGmail(recipientEmail, retries = 10) {
 
-    console.log(`📧 Connecting to Gmail to find OTP for: ${recipientEmail}`);
+    console.log(`Connecting to Gmail to find OTP for: ${recipientEmail}`);
 
     // Connect to Gmail
     const connection = await imapSimple.connect(getImapConfig());
@@ -33,7 +33,7 @@ async function getOTPFromGmail(recipientEmail, retries = 10) {
     // Wait and retry logic — email might take few seconds to arrive
     for (let attempt = 1; attempt <= retries; attempt++) {
 
-        console.log(`🔄 Attempt ${attempt}/${retries} — searching for OTP email...`);
+        console.log(`Attempt ${attempt}/${retries} — searching for OTP email...`);
 
         // Search for unseen/unread emails
         const searchCriteria = [
@@ -63,27 +63,27 @@ async function getOTPFromGmail(recipientEmail, retries = 10) {
 
             // Get plain text body of email
             const emailBody = parsed.text || parsed.html || '';
-            console.log('📨 Email body received:', emailBody);
+            console.log('Email body received:', emailBody);
 
             // Extract 6-digit OTP using regex
             const otpMatch = emailBody.match(/\b\d{6}\b/);
 
             if (otpMatch) {
                 const otp = otpMatch[0];
-                console.log(`✅ OTP found: ${otp}`);
+                console.log(`OTP found: ${otp}`);
                 connection.end(); // close connection
                 return otp;
             }
         }
 
         // Email not arrived yet — wait 3 seconds before retrying
-        console.log(`⏳ Email not found yet, waiting 3 seconds...`);
+        console.log(`Email not found yet, waiting 3 seconds...`);
         await new Promise(resolve => setTimeout(resolve, 3000));
     }
 
     // If OTP not found after all retries
     connection.end();
-    throw new Error('❌ OTP email not received within timeout period');
+    throw new Error('OTP email not received within timeout period');
 }
 
 module.exports = { getOTPFromGmail };

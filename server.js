@@ -6,6 +6,8 @@ const nodemailer = require('nodemailer');
 const { authenticator } = require('otplib');
 const qrcode = require('qrcode');
 const svgCaptcha = require('svg-captcha');
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('./swagger.json');
 
 // Twilio SMS Config
 let twilioClient = null;
@@ -74,6 +76,9 @@ if (isEmailConfigured) {
 
 // Helper to generate 6-digit OTP
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+// Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // --- API ROUTES ---
 
@@ -279,4 +284,5 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server is running at http://localhost:${PORT}`);
     console.log(`Open http://localhost:${PORT} in your browser.`);
+    console.log(`API Docs available at http://localhost:${PORT}/api-docs`);
 });

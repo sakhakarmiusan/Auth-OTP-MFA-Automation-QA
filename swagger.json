@@ -1,0 +1,732 @@
+{
+    "openapi": "3.0.3",
+    "info": {
+        "title": "SecureAuth MFA OTP & CAPTCHA API",
+        "description": "Complete API documentation for the SecureAuth MFA application.\n\n## Authentication Flow\n\n### Registration (5 steps)\n1. `POST /api/register` — Register & send OTP (email or SMS)\n2. `POST /api/verify-email` — Verify the 6-digit OTP\n3. `GET /api/captcha` — Get SVG CAPTCHA challenge\n4. `POST /api/verify-captcha` — Verify CAPTCHA & get TOTP QR code\n5. Scan QR code in Google Authenticator\n\n### Login (2 steps)\n1. `POST /api/login` — Authenticate with credentials\n2. `POST /api/verify-mfa` — Verify TOTP code from Authenticator\n\n### Session\n- `GET /api/me` — Get current logged-in user\n- `POST /api/logout` — Destroy session",
+        "version": "1.0.0",
+        "contact": {
+            "name": "SecureAuth",
+            "url": "https://github.com/sakhakarmiusan/Auth-OTP-MFA-Automation-QA"
+        }
+    },
+    "servers": [
+        {
+            "url": "http://localhost:3000",
+            "description": "Local Development Server"
+        }
+    ],
+    "tags": [
+        {
+            "name": "Registration",
+            "description": "Multi-step user registration with OTP, CAPTCHA, and TOTP setup"
+        },
+        {
+            "name": "Authentication",
+            "description": "Login and MFA verification"
+        },
+        {
+            "name": "Session",
+            "description": "Session management — get current user & logout"
+        }
+    ],
+    "paths": {
+        "/api/register": {
+            "post": {
+                "tags": [
+                    "Registration"
+                ],
+                "summary": "Register user & send OTP",
+                "description": "Register a new user and send a 6-digit OTP to their email address or phone number via SMS.\n\n**DEV MODE:** If `EMAIL_USER`/`EMAIL_PASS` are not set in `.env`, the OTP is logged to the server console instead of being emailed. Similarly for Twilio SMS.",
+                "operationId": "registerUser",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RegisterRequest"
+                            },
+                            "examples": {
+                                "email": {
+                                    "summary": "Register with Email",
+                                    "value": {
+                                        "name": "John Doe",
+                                        "email": "john@example.com",
+                                        "phone": "",
+                                        "password": "SecurePass123!",
+                                        "method": "email"
+                                    }
+                                },
+                                "phone": {
+                                    "summary": "Register with Phone (SMS)",
+                                    "value": {
+                                        "name": "Jane Doe",
+                                        "email": "",
+                                        "phone": "+1234567890",
+                                        "password": "SecurePass456!",
+                                        "method": "phone"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OTP sent successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RegisterResponse"
+                                },
+                                "example": {
+                                    "success": true,
+                                    "identifier": "john@example.com",
+                                    "message": "Verification email sent."
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Email or phone already registered",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Email already registered."
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to send email/SMS",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Failed to send email after multiple attempts. Check configuration."
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/verify-email": {
+            "post": {
+                "tags": [
+                    "Registration"
+                ],
+                "summary": "Verify OTP code",
+                "description": "Verify the 6-digit OTP code that was sent during registration. On success, the next step is to complete the CAPTCHA challenge.",
+                "operationId": "verifyEmailOtp",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VerifyOtpRequest"
+                            },
+                            "example": {
+                                "identifier": "john@example.com",
+                                "otp": "482931"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OTP verified — CAPTCHA required next",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/VerifyOtpResponse"
+                                },
+                                "example": {
+                                    "success": true,
+                                    "requireCaptcha": true,
+                                    "message": "OTP verified. Please complete the CAPTCHA."
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid or expired OTP",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Invalid or expired OTP."
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/captcha": {
+            "get": {
+                "tags": [
+                    "Registration"
+                ],
+                "summary": "Get CAPTCHA challenge",
+                "description": "Generate and return a new SVG CAPTCHA image. The CAPTCHA text is stored in the server session. Each call generates a new CAPTCHA (the old one is replaced).\n\n**CAPTCHA Config:** 5 characters, 3 noise lines, colored.",
+                "operationId": "getCaptcha",
+                "responses": {
+                    "200": {
+                        "description": "CAPTCHA image generated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CaptchaResponse"
+                                },
+                                "example": {
+                                    "success": true,
+                                    "captchaSvg": "<svg xmlns='http://www.w3.org/2000/svg' width='150' height='50'>...</svg>"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/verify-captcha": {
+            "post": {
+                "tags": [
+                    "Registration"
+                ],
+                "summary": "Verify CAPTCHA & complete registration",
+                "description": "Verify the CAPTCHA answer and complete user registration. On success, returns a QR code for Google Authenticator (TOTP) setup.\n\n**Prerequisites:**\n- OTP must already be verified\n- CAPTCHA must have been fetched via `GET /api/captcha`",
+                "operationId": "verifyCaptcha",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VerifyCaptchaRequest"
+                            },
+                            "example": {
+                                "identifier": "john@example.com",
+                                "captchaAnswer": "AbCdE"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Registration complete — QR code for TOTP setup returned",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/VerifyCaptchaResponse"
+                                },
+                                "example": {
+                                    "success": true,
+                                    "message": "CAPTCHA verified! Please scan the QR code to setup your Authenticator app.",
+                                    "qrCodeUrl": "data:image/png;base64,iVBORw0KGgo...",
+                                    "secret": "JBSWY3DPEHPK3PXP"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "OTP not verified or incorrect CAPTCHA",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "examples": {
+                                    "otpNotVerified": {
+                                        "summary": "OTP not verified yet",
+                                        "value": {
+                                            "error": "OTP not verified yet."
+                                        }
+                                    },
+                                    "wrongCaptcha": {
+                                        "summary": "Incorrect CAPTCHA",
+                                        "value": {
+                                            "error": "Incorrect CAPTCHA. Please try again."
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "QR code generation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Error generating QR code."
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/login": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Login with credentials",
+                "description": "Authenticate a registered user with their email/phone and password. On success, the user must complete MFA (TOTP) verification before gaining full access.",
+                "operationId": "loginUser",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LoginRequest"
+                            },
+                            "example": {
+                                "identifier": "john@example.com",
+                                "password": "SecurePass123!"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Credentials valid — MFA verification required",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LoginResponse"
+                                },
+                                "example": {
+                                    "success": true,
+                                    "requireMfa": true
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Invalid credentials",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Invalid credentials."
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/verify-mfa": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Verify MFA (TOTP code)",
+                "description": "Verify the 6-digit TOTP code from Google Authenticator (or any TOTP-compatible app). On success, a session is created and the user is fully logged in.\n\n**Note:** TOTP codes rotate every 30 seconds.",
+                "operationId": "verifyMfa",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VerifyMfaRequest"
+                            },
+                            "example": {
+                                "identifier": "john@example.com",
+                                "mfaCode": "847291"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "MFA verified — user is logged in",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/VerifyMfaResponse"
+                                },
+                                "example": {
+                                    "success": true,
+                                    "user": {
+                                        "name": "John Doe",
+                                        "email": "john@example.com",
+                                        "phone": ""
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "User not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "User not found."
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Invalid Authenticator code",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Invalid Authenticator code."
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/me": {
+            "get": {
+                "tags": [
+                    "Session"
+                ],
+                "summary": "Get current logged-in user",
+                "description": "Returns the profile of the currently logged-in user. Requires an active session (session cookie).",
+                "operationId": "getCurrentUser",
+                "responses": {
+                    "200": {
+                        "description": "User is logged in",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserResponse"
+                                },
+                                "example": {
+                                    "user": {
+                                        "name": "John Doe",
+                                        "email": "john@example.com",
+                                        "phone": ""
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not logged in",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Not logged in."
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/logout": {
+            "post": {
+                "tags": [
+                    "Session"
+                ],
+                "summary": "Logout",
+                "description": "Destroys the current server-side session, effectively logging the user out. The user must login again after this.",
+                "operationId": "logoutUser",
+                "responses": {
+                    "200": {
+                        "description": "Successfully logged out",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SuccessResponse"
+                                },
+                                "example": {
+                                    "success": true
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "RegisterRequest": {
+                "type": "object",
+                "required": [
+                    "name",
+                    "password",
+                    "method"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "User's full name",
+                        "example": "John Doe"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "description": "Email address (required when method = 'email')",
+                        "example": "john@example.com"
+                    },
+                    "phone": {
+                        "type": "string",
+                        "description": "Phone number with country code (required when method = 'phone')",
+                        "example": "+1234567890"
+                    },
+                    "password": {
+                        "type": "string",
+                        "description": "User password",
+                        "example": "SecurePass123!"
+                    },
+                    "method": {
+                        "type": "string",
+                        "enum": [
+                            "email",
+                            "phone"
+                        ],
+                        "description": "Verification method — 'email' or 'phone'",
+                        "example": "email"
+                    }
+                }
+            },
+            "RegisterResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "identifier": {
+                        "type": "string",
+                        "description": "The email or phone used as the user identifier",
+                        "example": "john@example.com"
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "Verification email sent."
+                    }
+                }
+            },
+            "VerifyOtpRequest": {
+                "type": "object",
+                "required": [
+                    "identifier",
+                    "otp"
+                ],
+                "properties": {
+                    "identifier": {
+                        "type": "string",
+                        "description": "Email or phone used during registration",
+                        "example": "john@example.com"
+                    },
+                    "otp": {
+                        "type": "string",
+                        "description": "6-digit OTP code",
+                        "pattern": "^[0-9]{6}$",
+                        "example": "482931"
+                    }
+                }
+            },
+            "VerifyOtpResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "requireCaptcha": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "OTP verified. Please complete the CAPTCHA."
+                    }
+                }
+            },
+            "CaptchaResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "captchaSvg": {
+                        "type": "string",
+                        "description": "SVG markup of the CAPTCHA image",
+                        "example": "<svg xmlns='http://www.w3.org/2000/svg' width='150' height='50'>...</svg>"
+                    }
+                }
+            },
+            "VerifyCaptchaRequest": {
+                "type": "object",
+                "required": [
+                    "identifier",
+                    "captchaAnswer"
+                ],
+                "properties": {
+                    "identifier": {
+                        "type": "string",
+                        "description": "Email or phone used during registration",
+                        "example": "john@example.com"
+                    },
+                    "captchaAnswer": {
+                        "type": "string",
+                        "description": "Text from the CAPTCHA image (case-insensitive)",
+                        "example": "AbCdE"
+                    }
+                }
+            },
+            "VerifyCaptchaResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "CAPTCHA verified! Please scan the QR code to setup your Authenticator app."
+                    },
+                    "qrCodeUrl": {
+                        "type": "string",
+                        "description": "Base64-encoded QR code image for Google Authenticator",
+                        "example": "data:image/png;base64,iVBORw0KGgo..."
+                    },
+                    "secret": {
+                        "type": "string",
+                        "description": "TOTP secret for manual entry in Authenticator app",
+                        "example": "JBSWY3DPEHPK3PXP"
+                    }
+                }
+            },
+            "LoginRequest": {
+                "type": "object",
+                "required": [
+                    "identifier",
+                    "password"
+                ],
+                "properties": {
+                    "identifier": {
+                        "type": "string",
+                        "description": "Registered email or phone",
+                        "example": "john@example.com"
+                    },
+                    "password": {
+                        "type": "string",
+                        "description": "User password",
+                        "example": "SecurePass123!"
+                    }
+                }
+            },
+            "LoginResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "requireMfa": {
+                        "type": "boolean",
+                        "description": "Indicates MFA verification is required",
+                        "example": true
+                    }
+                }
+            },
+            "VerifyMfaRequest": {
+                "type": "object",
+                "required": [
+                    "identifier",
+                    "mfaCode"
+                ],
+                "properties": {
+                    "identifier": {
+                        "type": "string",
+                        "description": "Registered email or phone",
+                        "example": "john@example.com"
+                    },
+                    "mfaCode": {
+                        "type": "string",
+                        "description": "6-digit TOTP code from Authenticator app",
+                        "pattern": "^[0-9]{6}$",
+                        "example": "847291"
+                    }
+                }
+            },
+            "VerifyMfaResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "user": {
+                        "$ref": "#/components/schemas/User"
+                    }
+                }
+            },
+            "UserResponse": {
+                "type": "object",
+                "properties": {
+                    "user": {
+                        "$ref": "#/components/schemas/User"
+                    }
+                }
+            },
+            "User": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "example": "John Doe"
+                    },
+                    "email": {
+                        "type": "string",
+                        "example": "john@example.com"
+                    },
+                    "phone": {
+                        "type": "string",
+                        "example": ""
+                    }
+                }
+            },
+            "SuccessResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    }
+                }
+            },
+            "ErrorResponse": {
+                "type": "object",
+                "properties": {
+                    "error": {
+                        "type": "string",
+                        "description": "Error message",
+                        "example": "Something went wrong."
+                    }
+                }
+            }
+        }
+    }
+}

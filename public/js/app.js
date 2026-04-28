@@ -2,7 +2,8 @@
 const state = {
     pendingIdentifier: '',
     regMethod: 'email',
-    loggedInUser: null
+    loggedInUser: null,
+    calendarInitialized: false
 };
 
 // --- DOM ELEMENTS ---
@@ -34,6 +35,17 @@ function switchView(viewId) {
         el.classList.remove('active');
     });
     document.getElementById(viewId).classList.add('active');
+
+    // Toggle between auth card and full dashboard
+    const authContainer = document.querySelector('.container');
+    const fullDashboard = document.getElementById('full-dashboard');
+    if (viewId === 'view-dashboard') {
+        authContainer.style.display = 'none';
+        fullDashboard.style.display = 'block';
+    } else {
+        authContainer.style.display = '';
+        fullDashboard.style.display = 'none';
+    }
 }
 
 // --- REGISTRATION METHOD TOGGLE ---
@@ -267,11 +279,18 @@ document.getElementById('btn-logout').addEventListener('click', async function (
     }
 });
 
+
 function populateDashboard(user) {
-    document.getElementById('dash-welcome').textContent = `✅ Login Successful — Welcome, ${user.name}!`;
+    document.getElementById('dash-welcome').textContent = `✅ स्वागतम्, ${user.name}!`;
     document.getElementById('dash-name').textContent = user.name;
     document.getElementById('dash-email').textContent = user.email || user.phone || '';
     document.getElementById('dash-avatar').textContent = user.name.charAt(0).toUpperCase();
+
+    // Initialize Nepali calendar
+    if (!state.calendarInitialized) {
+        NepaliCalendar.init();
+        state.calendarInitialized = true;
+    }
 }
 
 // Check session on load via /api/me
