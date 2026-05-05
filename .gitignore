@@ -1,2 +1,9 @@
 node_modules/
 .env
+
+# Temporary / Scratch Files
+scratch.js
+*.resolved
+
+# macOS
+.DS_Store

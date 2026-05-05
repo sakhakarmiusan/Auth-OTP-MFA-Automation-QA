@@ -1,0 +1,86 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  background: #0b1020;
+  color: #e7eaf2;
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.card {
+  width: min(520px, 100%);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.35);
+}
+
+.tabs { display:flex; gap: 10px; margin: 10px 0 14px; }
+.tab {
+  flex: 1;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.16);
+  padding: 12px 14px;
+  border-radius: 12px;
+  color: #e7eaf2;
+  cursor: pointer;
+  font-weight: 650;
+}
+.tab.active { background: #6c63ff; border-color: rgba(255,255,255,0.16); }
+
+h1 { margin: 0 0 6px; font-size: 22px; }
+.subtitle { margin: 0 0 18px; opacity: 0.9; }
+
+.msg {
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin: 10px 0 14px;
+  font-size: 14px;
+}
+.msg.error { background: rgba(255, 70, 70, 0.12); border: 1px solid rgba(255, 70, 70, 0.35); }
+.msg.success { background: rgba(80, 255, 170, 0.12); border: 1px solid rgba(80, 255, 170, 0.35); }
+
+label { display:block; margin: 10px 0 6px; font-size: 14px; opacity: 0.95; }
+input {
+  width: 100%;
+  padding: 12px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(0,0,0,0.25);
+  color: #e7eaf2;
+}
+button {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: #6c63ff;
+  color: white;
+  font-weight: 650;
+  cursor: pointer;
+}
+button:disabled { opacity: 0.7; cursor: not-allowed; }
+
+.captcha-box { margin: 10px 0 4px; }
+.captcha-image {
+  display: inline-block;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  padding: 10px;
+}
+.link-btn {
+  width: auto;
+  background: transparent;
+  border: none;
+  padding: 8px 0;
+  color: #bdb8ff;
+  text-decoration: underline;
+}
+.hint { margin-top: 14px; font-size: 12px; opacity: 0.75; }
+

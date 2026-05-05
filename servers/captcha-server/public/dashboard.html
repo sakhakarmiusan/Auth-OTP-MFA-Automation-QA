@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard (CAPTCHA-only)</title>
+  <link rel="stylesheet" href="css/dashboard.css" />
+</head>
+<body>
+  <div id="full-dashboard" class="full-dashboard" style="display:none;">
+    <nav class="dash-navbar">
+      <div class="dash-nav-left">
+        <div class="dash-logo">
+          <span class="dash-logo-text">नेपाली पात्रो</span>
+        </div>
+      </div>
+      <div class="dash-nav-right">
+        <div class="dash-user-info">
+          <div class="dash-avatar-sm" id="dash-avatar">U</div>
+          <div class="dash-user-details">
+            <span class="dash-user-name" id="dash-name"></span>
+            <span class="dash-user-email" id="dash-email"></span>
+          </div>
+        </div>
+        <button type="button" id="btn-logout" class="dash-logout-btn">Log Out</button>
+      </div>
+    </nav>
+
+    <main class="dash-main">
+      <div class="dash-welcome-banner">
+        <div class="dash-welcome-text">
+          <h1 id="dash-welcome">✅ स्वागतम्!</h1>
+          <p class="dash-today-label">आजको मिति:</p>
+          <p class="dash-today-date" id="cal-today-info"></p>
+        </div>
+      </div>
+
+      <div class="cal-card">
+        <div class="cal-header">
+          <button type="button" id="cal-prev" class="cal-nav-btn" aria-label="Previous month">‹</button>
+          <div class="cal-title-group">
+            <h2 class="cal-month-title" id="cal-month-name"></h2>
+            <span class="cal-month-en" id="cal-month-en"></span>
+            <span class="cal-ad-range" id="cal-ad-range"></span>
+          </div>
+          <button type="button" id="cal-next" class="cal-nav-btn" aria-label="Next month">›</button>
+        </div>
+        <button type="button" id="cal-today-btn" class="cal-today-btn">आज</button>
+        <div class="cal-grid" id="cal-grid"></div>
+      </div>
+    </main>
+  </div>
+
+  <div id="not-logged" class="card">
+    <h1>Not logged in</h1>
+    <p class="subtitle">Please login/register first.</p>
+    <a href="/" style="color:#bdb8ff;">Go back</a>
+  </div>
+
+  <script src="js/nepali-date.js"></script>
+  <script src="js/nepali-calendar.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>
+

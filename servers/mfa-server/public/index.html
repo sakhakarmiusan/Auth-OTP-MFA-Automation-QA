@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MFA Verification (8000)</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="card">
+    <h1>MFA-only Registration</h1>
+    <p class="subtitle">Register with email/password → setup Authenticator → Dashboard</p>
+
+    <div id="error" class="msg error" style="display:none;"></div>
+    <div id="success" class="msg success" style="display:none;"></div>
+
+    <div class="tabs">
+      <button class="tab active" id="tabRegister" type="button">Register</button>
+      <button class="tab" id="tabLogin" type="button">Login</button>
+    </div>
+
+    <section id="registerSection">
+      <form id="registerForm">
+        <label>Name</label>
+        <input id="regName" type="text" required />
+
+        <label>Email</label>
+        <input id="regEmail" type="email" required />
+
+        <label>Password</label>
+        <input id="regPassword" type="password" minlength="6" required />
+
+        <button id="registerBtn" type="submit">Register & Generate QR</button>
+      </form>
+    </section>
+
+    <section id="setupSection" style="display:none;">
+      <div class="qrBox">
+        <img id="qrImg" alt="QR Code" />
+        <p class="hint" id="secretText"></p>
+      </div>
+      <form id="verifySetupForm">
+        <label for="setupCode">Enter Authenticator Code</label>
+        <input id="setupCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required />
+        <button id="setupVerifyBtn" type="submit">Verify & Open Dashboard</button>
+      </form>
+    </section>
+
+    <section id="loginSection" style="display:none;">
+      <form id="loginForm">
+        <label>Email</label>
+        <input id="loginEmail" type="email" required />
+
+        <label>Password</label>
+        <input id="loginPassword" type="password" required />
+
+        <button id="loginBtn" type="submit">Login</button>
+      </form>
+
+      <form id="loginMfaForm" style="display:none;">
+        <label for="loginMfaCode">Authenticator Code</label>
+        <input id="loginMfaCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required />
+        <button id="loginMfaBtn" type="submit">Verify MFA</button>
+      </form>
+    </section>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
+

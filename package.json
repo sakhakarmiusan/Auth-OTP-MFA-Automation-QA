@@ -4,7 +4,13 @@
   "description": "Secure authentication app with static files served by Express",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node servers/captcha-server/server.js",
+    "start:monolith": "node server.js",
+    "start:multi": "node multi-server.js",
+    "start:otp": "node servers/otp-server/server.js",
+    "start:captcha": "node servers/captcha-server/server.js",
+    "start:mfa": "node servers/mfa-server/server.js",
+    "start:modes": "node start-auth-modes.js"
   },
   "dependencies": {
     "@playwright/test": "^1.59.1",

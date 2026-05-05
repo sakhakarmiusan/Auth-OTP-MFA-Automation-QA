@@ -8,7 +8,7 @@ module.exports = defineConfig({
     timeout: 30000,
     retries: 1,
     use: {
-        baseURL: 'http://localhost:3000/',
+        baseURL: process.env.APP_URL,
         headless: false,
         viewport: { width: 1280, height: 720 },
         screenshot: 'only-on-failure',

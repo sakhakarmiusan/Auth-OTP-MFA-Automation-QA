@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OTP-only Auth (3000)</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="card" id="authCard">
+      <h1>OTP-only Registration</h1>
+      <p class="subtitle">Register with email/password → OTP → Dashboard</p>
+
+      <div id="error" class="msg error" style="display:none;"></div>
+      <div id="success" class="msg success" style="display:none;"></div>
+
+      <div class="tabs">
+        <button class="tab active" id="tabRegister" type="button">Register</button>
+        <button class="tab" id="tabLogin" type="button">Login</button>
+      </div>
+
+      <section id="registerSection">
+        <form id="registerForm">
+          <label>Name</label>
+          <input id="regName" type="text" required />
+
+          <label>Email</label>
+          <input id="regEmail" type="email" required />
+
+          <label>Password</label>
+          <input id="regPassword" type="password" minlength="6" required />
+
+          <button id="registerBtn" type="submit">Register & Send OTP</button>
+        </form>
+      </section>
+
+      <section id="otpSection" style="display:none;">
+        <form id="otpForm">
+          <label>OTP</label>
+          <input id="otpInput" type="text" maxlength="6" pattern="[0-9]{6}" required />
+          <button id="otpBtn" type="submit">Verify OTP</button>
+        </form>
+        <p class="hint">In DEV mode OTP is printed in the server console.</p>
+      </section>
+
+      <section id="loginSection" style="display:none;">
+        <form id="loginForm">
+          <label>Email</label>
+          <input id="loginEmail" type="email" required />
+
+          <label>Password</label>
+          <input id="loginPassword" type="password" required />
+
+          <button id="loginBtn" type="submit">Login</button>
+        </form>
+      </section>
+    </div>
+
+    <div id="dashboard" class="full-dashboard" style="display:none;">
+      <nav class="dash-navbar">
+        <div class="dash-nav-left">
+          <div class="dash-logo">
+            <span class="dash-logo-text">नेपाली पात्रो</span>
+          </div>
+        </div>
+        <div class="dash-nav-right">
+          <div class="dash-user-info">
+            <div class="dash-avatar-sm" id="dash-avatar">U</div>
+            <div class="dash-user-details">
+              <span class="dash-user-name" id="dash-name"></span>
+              <span class="dash-user-email" id="dash-email"></span>
+            </div>
+          </div>
+          <button type="button" id="logoutBtn" class="dash-logout-btn">Log Out</button>
+        </div>
+      </nav>
+
+      <main class="dash-main">
+        <div class="dash-welcome-banner">
+          <div class="dash-welcome-text">
+            <h1 id="dash-welcome">✅ स्वागतम्!</h1>
+            <p class="dash-today-label">आजको मिति:</p>
+            <p class="dash-today-date" id="cal-today-info"></p>
+          </div>
+        </div>
+
+        <div class="cal-card">
+          <div class="cal-header">
+            <button type="button" id="cal-prev" class="cal-nav-btn" aria-label="Previous month">‹</button>
+            <div class="cal-title-group">
+              <h2 class="cal-month-title" id="cal-month-name"></h2>
+              <span class="cal-month-en" id="cal-month-en"></span>
+              <span class="cal-ad-range" id="cal-ad-range"></span>
+            </div>
+            <button type="button" id="cal-next" class="cal-nav-btn" aria-label="Next month">›</button>
+          </div>
+          <button type="button" id="cal-today-btn" class="cal-today-btn">आज</button>
+          <div class="cal-grid" id="cal-grid"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="js/nepali-date.js"></script>
+  <script src="js/nepali-calendar.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
+

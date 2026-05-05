@@ -2,8 +2,8 @@
     "openapi": "3.0.3",
     "info": {
         "title": "SecureAuth MFA OTP & CAPTCHA API",
-        "description": "Complete API documentation for the SecureAuth MFA application.\n\n## Authentication Flow\n\n### Registration (5 steps)\n1. `POST /api/register` — Register & send OTP (email or SMS)\n2. `POST /api/verify-email` — Verify the 6-digit OTP\n3. `GET /api/captcha` — Get SVG CAPTCHA challenge\n4. `POST /api/verify-captcha` — Verify CAPTCHA & get TOTP QR code\n5. Scan QR code in Google Authenticator\n\n### Login (2 steps)\n1. `POST /api/login` — Authenticate with credentials\n2. `POST /api/verify-mfa` — Verify TOTP code from Authenticator\n\n### Session\n- `GET /api/me` — Get current logged-in user\n- `POST /api/logout` — Destroy session",
-        "version": "1.0.0",
+        "description": "Complete API documentation for the SecureAuth application.\n\n## Running modes\n\n### Monolith mode (`npm run start`)\n- Single server on `:3000` implements registration (OTP → CAPTCHA → TOTP setup) and login (password → TOTP).\n\n### Multi-server mode (`npm run start:multi`)\n- **OTP/UI** server on `:3000`\n- **CAPTCHA** server on `:5000`\n- **MFA** server on `:8000`\n\nIn multi-server mode, login is **password → login-OTP → CAPTCHA → MFA**.\n\n## Flows\n\n### Registration (monolith & multi-server OTP server)\n1. `POST /api/register` — Register & send OTP (email or SMS)\n2. `POST /api/verify-email` — Verify the 6-digit OTP\n3. `GET /api/captcha` — Get SVG CAPTCHA challenge (registration)\n4. `POST /api/verify-captcha` — Verify CAPTCHA & get TOTP QR code\n5. Scan QR code in Google Authenticator\n\n### Login (multi-server)\n1. `POST /api/login` — Password check, then send login OTP\n2. `POST /api/verify-login-otp` — Verify login OTP\n3. `GET /api/captcha` — Get SVG CAPTCHA challenge (login CAPTCHA server)\n4. `POST /api/verify-captcha` — Verify CAPTCHA (login CAPTCHA server)\n5. `POST /api/verify-mfa` — Verify TOTP (MFA server)\n\n### Session\n- `GET /api/me` — Get current logged-in user\n- `POST /api/logout` — Destroy session",
+        "version": "1.1.0",
         "contact": {
             "name": "SecureAuth",
             "url": "https://github.com/sakhakarmiusan/Auth-OTP-MFA-Automation-QA"
@@ -11,8 +11,34 @@
     },
     "servers": [
         {
-            "url": "http://localhost:3000",
-            "description": "Local Development Server"
+            "url": "http://localhost:{otpPort}",
+            "description": "OTP/UI server (monolith or OTP service)",
+            "variables": {
+                "otpPort": {
+                    "default": "3000",
+                    "description": "Set this to your OTP/UI port (e.g. 3500)."
+                }
+            }
+        },
+        {
+            "url": "http://localhost:{captchaPort}",
+            "description": "CAPTCHA service (multi-server login flow)",
+            "variables": {
+                "captchaPort": {
+                    "default": "5000",
+                    "description": "Set this to your CAPTCHA port (e.g. 5500)."
+                }
+            }
+        },
+        {
+            "url": "http://localhost:{mfaPort}",
+            "description": "MFA service (multi-server login flow)",
+            "variables": {
+                "mfaPort": {
+                    "default": "8000",
+                    "description": "Set this to your MFA port (e.g. 8500)."
+                }
+            }
         }
     ],
     "tags": [
@@ -25,8 +51,16 @@
             "description": "Login and MFA verification"
         },
         {
+            "name": "Dev",
+            "description": "Development-only helpers (disabled unless enabled by env flags)"
+        },
+        {
             "name": "Session",
             "description": "Session management — get current user & logout"
+        },
+        {
+            "name": "Health",
+            "description": "Service health endpoints (multi-server)"
         }
     ],
     "paths": {
@@ -38,6 +72,18 @@
                 "summary": "Register user & send OTP",
                 "description": "Register a new user and send a 6-digit OTP to their email address or phone number via SMS.\n\n**DEV MODE:** If `EMAIL_USER`/`EMAIL_PASS` are not set in `.env`, the OTP is logged to the server console instead of being emailed. Similarly for Twilio SMS.",
                 "operationId": "registerUser",
+                "servers": [
+                    {
+                        "url": "http://localhost:{otpPort}",
+                        "description": "OTP/UI server only",
+                        "variables": {
+                            "otpPort": {
+                                "default": "3000",
+                                "description": "Your OTP/UI port (e.g. 3500)."
+                            }
+                        }
+                    }
+                ],
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -123,6 +169,18 @@
                 "summary": "Verify OTP code",
                 "description": "Verify the 6-digit OTP code that was sent during registration. On success, the next step is to complete the CAPTCHA challenge.",
                 "operationId": "verifyEmailOtp",
+                "servers": [
+                    {
+                        "url": "http://localhost:{otpPort}",
+                        "description": "OTP/UI server only",
+                        "variables": {
+                            "otpPort": {
+                                "default": "3000",
+                                "description": "Your OTP/UI port (e.g. 3500)."
+                            }
+                        }
+                    }
+                ],
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -175,8 +233,18 @@
                     "Registration"
                 ],
                 "summary": "Get CAPTCHA challenge",
-                "description": "Generate and return a new SVG CAPTCHA image. The CAPTCHA text is stored in the server session. Each call generates a new CAPTCHA (the old one is replaced).\n\n**CAPTCHA Config:** 5 characters, 3 noise lines, colored.",
+                "description": "Generate and return a new SVG CAPTCHA image.\n\n- On `http://localhost:3000` this is the **registration CAPTCHA**.\n- On `http://localhost:5000` this is the **login CAPTCHA** (requires login-OTP step first).\n\nThe CAPTCHA text is stored in the server session. Each call generates a new CAPTCHA (the old one is replaced).\n\n**CAPTCHA Config:** 5 characters, 3 noise lines, colored.",
                 "operationId": "getCaptcha",
+                "servers": [
+                    {
+                        "url": "http://localhost:3000",
+                        "description": "Registration CAPTCHA (OTP/UI server)"
+                    },
+                    {
+                        "url": "http://localhost:5000",
+                        "description": "Login CAPTCHA (CAPTCHA service)"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "CAPTCHA image generated",
@@ -192,6 +260,20 @@
                             }
                         }
                     }
+                    ,
+                    "401": {
+                        "description": "Login CAPTCHA prerequisites not satisfied (multi-server CAPTCHA service only)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "OTP step not completed yet."
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -201,8 +283,18 @@
                     "Registration"
                 ],
                 "summary": "Verify CAPTCHA & complete registration",
-                "description": "Verify the CAPTCHA answer and complete user registration. On success, returns a QR code for Google Authenticator (TOTP) setup.\n\n**Prerequisites:**\n- OTP must already be verified\n- CAPTCHA must have been fetched via `GET /api/captcha`",
+                "description": "Verify a CAPTCHA answer.\n\n- On `http://localhost:3000` this completes **registration** and returns a TOTP QR code.\n- On `http://localhost:5000` this completes the **login CAPTCHA step** and returns the next URL (MFA).\n\n**Prerequisites:**\n- CAPTCHA must have been fetched via `GET /api/captcha`\n- For registration (OTP/UI server): OTP must already be verified\n- For login (CAPTCHA service): login OTP must already be verified",
                 "operationId": "verifyCaptcha",
+                "servers": [
+                    {
+                        "url": "http://localhost:3000",
+                        "description": "Registration CAPTCHA verify (OTP/UI server)"
+                    },
+                    {
+                        "url": "http://localhost:5000",
+                        "description": "Login CAPTCHA verify (CAPTCHA service)"
+                    }
+                ],
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -219,17 +311,38 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Registration complete — QR code for TOTP setup returned",
+                        "description": "CAPTCHA verified (response differs by server/mode)",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/VerifyCaptchaResponse"
+                                    "oneOf": [
+                                        {
+                                            "$ref": "#/components/schemas/VerifyCaptchaResponse"
+                                        },
+                                        {
+                                            "$ref": "#/components/schemas/LoginCaptchaVerifiedResponse"
+                                        }
+                                    ]
                                 },
-                                "example": {
-                                    "success": true,
-                                    "message": "CAPTCHA verified! Please scan the QR code to setup your Authenticator app.",
-                                    "qrCodeUrl": "data:image/png;base64,iVBORw0KGgo...",
-                                    "secret": "JBSWY3DPEHPK3PXP"
+                                "examples": {
+                                    "registration": {
+                                        "summary": "Registration completion (OTP/UI server)",
+                                        "value": {
+                                            "success": true,
+                                            "message": "CAPTCHA verified! Please scan the QR code to setup your Authenticator app.",
+                                            "qrCodeUrl": "data:image/png;base64,iVBORw0KGgo...",
+                                            "secret": "JBSWY3DPEHPK3PXP"
+                                        }
+                                    },
+                                    "loginCaptcha": {
+                                        "summary": "Login CAPTCHA completion (CAPTCHA service)",
+                                        "value": {
+                                            "success": true,
+                                            "requireMfa": true,
+                                            "mfaUrl": "http://localhost:8000/",
+                                            "message": "CAPTCHA verified. Continue with MFA."
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -280,8 +393,20 @@
                     "Authentication"
                 ],
                 "summary": "Login with credentials",
-                "description": "Authenticate a registered user with their email/phone and password. On success, the user must complete MFA (TOTP) verification before gaining full access.",
+                "description": "Authenticate a registered user with their email/phone and password.\n\n- In **monolith mode**, this returns `requireMfa: true`.\n- In **multi-server mode**, this returns `requireLoginOtp: true` and sends a login OTP, then you must call `POST /api/verify-login-otp` before going to the CAPTCHA service.",
                 "operationId": "loginUser",
+                "servers": [
+                    {
+                        "url": "http://localhost:{otpPort}",
+                        "description": "OTP/UI server only",
+                        "variables": {
+                            "otpPort": {
+                                "default": "3000",
+                                "description": "Your OTP/UI port (e.g. 3500)."
+                            }
+                        }
+                    }
+                ],
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -298,7 +423,7 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Credentials valid — MFA verification required",
+                        "description": "Credentials valid — next step required (depends on mode)",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -306,7 +431,8 @@
                                 },
                                 "example": {
                                     "success": true,
-                                    "requireMfa": true
+                                    "requireLoginOtp": true,
+                                    "message": "Password valid. Please enter the OTP sent to your email/phone."
                                 }
                             }
                         }
@@ -327,14 +453,101 @@
                 }
             }
         },
+        "/api/verify-login-otp": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Verify login OTP (multi-server login flow)",
+                "description": "Verify the login OTP after `POST /api/login`.\n\nOn success, the next step is to call the CAPTCHA service (`GET http://localhost:5000/api/captcha`).",
+                "operationId": "verifyLoginOtp",
+                "servers": [
+                    {
+                        "url": "http://localhost:{otpPort}",
+                        "description": "OTP/UI server only",
+                        "variables": {
+                            "otpPort": {
+                                "default": "3000",
+                                "description": "Your OTP/UI port (e.g. 3500)."
+                            }
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VerifyLoginOtpRequest"
+                            },
+                            "example": {
+                                "otp": "123456"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OTP verified — CAPTCHA required next",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/VerifyLoginOtpResponse"
+                                },
+                                "example": {
+                                    "success": true,
+                                    "requireCaptcha": true,
+                                    "captchaUrl": "http://localhost:5000/",
+                                    "message": "OTP verified. Continue with CAPTCHA."
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "No pending login or invalid OTP",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "examples": {
+                                    "noPendingLogin": {
+                                        "summary": "No pending login",
+                                        "value": {
+                                            "error": "No pending login."
+                                        }
+                                    },
+                                    "invalidOtp": {
+                                        "summary": "Invalid OTP",
+                                        "value": {
+                                            "error": "Invalid OTP."
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/verify-mfa": {
             "post": {
                 "tags": [
                     "Authentication"
                 ],
                 "summary": "Verify MFA (TOTP code)",
-                "description": "Verify the 6-digit TOTP code from Google Authenticator (or any TOTP-compatible app). On success, a session is created and the user is fully logged in.\n\n**Note:** TOTP codes rotate every 30 seconds.",
+                "description": "Verify the 6-digit TOTP code from Google Authenticator (or any TOTP-compatible app).\n\n- Monolith mode: requires `identifier` and verifies it against the user's stored secret.\n- Multi-server mode: verifies the code for the *pending login user* stored in session, and requires previous steps (login OTP + CAPTCHA) to be completed.\n\n**Note:** TOTP codes rotate every 30 seconds.",
                 "operationId": "verifyMfa",
+                "servers": [
+                    {
+                        "url": "http://localhost:3000",
+                        "description": "Monolith server"
+                    },
+                    {
+                        "url": "http://localhost:8000",
+                        "description": "MFA service (multi-server)"
+                    }
+                ],
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -397,6 +610,122 @@
                 }
             }
         },
+        "/api/dev/create-user": {
+            "post": {
+                "tags": [
+                    "Dev"
+                ],
+                "summary": "Create a dev user (multi-server helper)",
+                "description": "Creates a user with a generated TOTP secret + QR code without running the full registration flow.\n\nEnabled only when `ALLOW_DEV_ENDPOINTS=true`.",
+                "operationId": "devCreateUser",
+                "servers": [
+                    {
+                        "url": "http://localhost:3000",
+                        "description": "OTP/UI server"
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DevCreateUserRequest"
+                            },
+                            "example": {
+                                "name": "Dev User",
+                                "identifier": "dev@example.com",
+                                "password": "DevPass123!"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "User created with QR + secret",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DevCreateUserResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request or user already exists",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Dev endpoints disabled",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Not found."
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/health": {
+            "get": {
+                "tags": [
+                    "Health"
+                ],
+                "summary": "Service health (multi-server)",
+                "description": "Health endpoint for CAPTCHA (`:5000`) and MFA (`:8000`) services.",
+                "operationId": "serviceHealth",
+                "servers": [
+                    {
+                        "url": "http://localhost:5000",
+                        "description": "CAPTCHA service"
+                    },
+                    {
+                        "url": "http://localhost:8000",
+                        "description": "MFA service"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Service is healthy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HealthResponse"
+                                },
+                                "examples": {
+                                    "captcha": {
+                                        "summary": "CAPTCHA health",
+                                        "value": {
+                                            "ok": true,
+                                            "service": "captcha",
+                                            "port": 5000
+                                        }
+                                    },
+                                    "mfa": {
+                                        "summary": "MFA health",
+                                        "value": {
+                                            "ok": true,
+                                            "service": "mfa",
+                                            "port": 8000
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/me": {
             "get": {
                 "tags": [
@@ -405,6 +734,18 @@
                 "summary": "Get current logged-in user",
                 "description": "Returns the profile of the currently logged-in user. Requires an active session (session cookie).",
                 "operationId": "getCurrentUser",
+                "servers": [
+                    {
+                        "url": "http://localhost:{otpPort}",
+                        "description": "OTP/UI server only",
+                        "variables": {
+                            "otpPort": {
+                                "default": "3000",
+                                "description": "Your OTP/UI port (e.g. 3500)."
+                            }
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "User is logged in",
@@ -447,6 +788,18 @@
                 "summary": "Logout",
                 "description": "Destroys the current server-side session, effectively logging the user out. The user must login again after this.",
                 "operationId": "logoutUser",
+                "servers": [
+                    {
+                        "url": "http://localhost:{otpPort}",
+                        "description": "OTP/UI server only",
+                        "variables": {
+                            "otpPort": {
+                                "default": "3000",
+                                "description": "Your OTP/UI port (e.g. 3500)."
+                            }
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Successfully logged out",
@@ -579,13 +932,12 @@
             "VerifyCaptchaRequest": {
                 "type": "object",
                 "required": [
-                    "identifier",
                     "captchaAnswer"
                 ],
                 "properties": {
                     "identifier": {
                         "type": "string",
-                        "description": "Email or phone used during registration",
+                        "description": "Email or phone used during registration (required for registration flow on `:3000`). In multi-server login CAPTCHA flow (`:5000`), identifier is taken from session.",
                         "example": "john@example.com"
                     },
                     "captchaAnswer": {
@@ -646,21 +998,34 @@
                     },
                     "requireMfa": {
                         "type": "boolean",
-                        "description": "Indicates MFA verification is required",
+                        "description": "Monolith mode: indicates MFA verification is required",
                         "example": true
+                    },
+                    "requireLoginOtp": {
+                        "type": "boolean",
+                        "description": "Multi-server mode: indicates login-OTP verification is required next",
+                        "example": true
+                    },
+                    "devOtp": {
+                        "type": "string",
+                        "description": "Present only when `SHOW_DEV_OTPS=true` (multi-server).",
+                        "example": "123456"
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "Password valid. Please enter the OTP sent to your email/phone."
                     }
                 }
             },
             "VerifyMfaRequest": {
                 "type": "object",
                 "required": [
-                    "identifier",
                     "mfaCode"
                 ],
                 "properties": {
                     "identifier": {
                         "type": "string",
-                        "description": "Registered email or phone",
+                        "description": "Monolith mode only: registered email or phone. Multi-server mode uses the pending login identifier from session.",
                         "example": "john@example.com"
                     },
                     "mfaCode": {
@@ -668,6 +1033,122 @@
                         "description": "6-digit TOTP code from Authenticator app",
                         "pattern": "^[0-9]{6}$",
                         "example": "847291"
+                    }
+                }
+            },
+            "VerifyLoginOtpRequest": {
+                "type": "object",
+                "required": [
+                    "otp"
+                ],
+                "properties": {
+                    "otp": {
+                        "type": "string",
+                        "description": "6-digit OTP code for login",
+                        "pattern": "^[0-9]{6}$",
+                        "example": "123456"
+                    }
+                }
+            },
+            "VerifyLoginOtpResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "requireCaptcha": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "captchaUrl": {
+                        "type": "string",
+                        "example": "http://localhost:5000/"
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "OTP verified. Continue with CAPTCHA."
+                    }
+                }
+            },
+            "LoginCaptchaVerifiedResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "requireMfa": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "mfaUrl": {
+                        "type": "string",
+                        "example": "http://localhost:8000/"
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "CAPTCHA verified. Continue with MFA."
+                    }
+                }
+            },
+            "DevCreateUserRequest": {
+                "type": "object",
+                "required": [
+                    "identifier",
+                    "password"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "example": "Dev User"
+                    },
+                    "identifier": {
+                        "type": "string",
+                        "description": "Email or phone identifier",
+                        "example": "dev@example.com"
+                    },
+                    "password": {
+                        "type": "string",
+                        "example": "DevPass123!"
+                    }
+                }
+            },
+            "DevCreateUserResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "identifier": {
+                        "type": "string",
+                        "example": "dev@example.com"
+                    },
+                    "secret": {
+                        "type": "string",
+                        "example": "JBSWY3DPEHPK3PXP"
+                    },
+                    "qrCodeUrl": {
+                        "type": "string",
+                        "example": "data:image/png;base64,iVBORw0KGgo..."
+                    }
+                }
+            },
+            "HealthResponse": {
+                "type": "object",
+                "properties": {
+                    "ok": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "service": {
+                        "type": "string",
+                        "example": "captcha"
+                    },
+                    "port": {
+                        "type": "integer",
+                        "example": 5000
                     }
                 }
             },

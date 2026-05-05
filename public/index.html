@@ -83,7 +83,7 @@
                     <div class="form-group">
                         <label for="reg-otp-input">Verification Code</label>
                         <input type="text" id="reg-otp-input" data-testid="register-otp-input"
-                            placeholder="Enter 6-digit code" maxlength="6" pattern="\d{6}" required>
+                            placeholder="Enter 6-digit code" maxlength="6" pattern="[0-9]{6}" required>
                     </div>
 
                     <button type="submit" id="btn-reg-otp-verify" data-testid="register-otp-submit">Verify
@@ -167,6 +167,28 @@
 
                 <div class="text-center">
                     Don't have an account? <a href="#" onclick="switchView('view-register'); return false;">Register</a>
+                </div>
+            </div>
+
+            <!-- ================= LOGIN OTP VIEW (Port 3000) ================= -->
+            <div id="view-login-otp" class="view-section" data-testid="login-otp-section">
+                <div class="header">
+                    <h2>Login OTP Verification</h2>
+                    <p>We've sent a 6-digit OTP after password. Enter it to continue.</p>
+                </div>
+
+                <form id="form-login-otp">
+                    <div class="form-group">
+                        <label for="login-otp-input">Login OTP</label>
+                        <input type="text" id="login-otp-input" data-testid="login-otp-input"
+                            placeholder="Enter 6-digit OTP" maxlength="6" pattern="[0-9]{6}" required>
+                    </div>
+
+                    <button type="submit" id="btn-login-otp-verify" data-testid="login-otp-submit">Verify OTP</button>
+                </form>
+
+                <div class="text-center">
+                    <a href="#" onclick="switchView('view-login'); return false;">Back to Login</a>
                 </div>
             </div>
 

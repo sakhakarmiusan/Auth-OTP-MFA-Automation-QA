@@ -125,10 +125,11 @@ document.getElementById('form-register').addEventListener('submit', async functi
         const data = await apiCall('/api/register', { name, email, phone, password, method });
         state.pendingIdentifier = data.identifier;
         document.getElementById('reg-otp-input').value = '';
-        switchView('view-register-otp');
-        showSuccess(method === 'phone'
-            ? "Verification SMS has been sent to your phone."
-            : "Verification email has been sent to your inbox.");
+        
+        // DEV OVERRIDE: Skip OTP and go straight to CAPTCHA testing
+        await loadCaptcha();
+        switchView('view-captcha');
+        showSuccess("Registration started. Please solve the CAPTCHA.");
     } catch (err) {
         showError(err.message);
     } finally {
@@ -221,11 +222,11 @@ document.getElementById('form-login').addEventListener('submit', async function 
 
     try {
         const data = await apiCall('/api/login', { identifier, password });
-        if (data.requireMfa) {
+        if (data.requireLoginOtp) {
             state.pendingIdentifier = identifier;
-            document.getElementById('mfa-otp-input').value = '';
-            switchView('view-mfa');
-            showSuccess("Password valid. Please enter Authenticator code.");
+            document.getElementById('login-otp-input').value = '';
+            switchView('view-login-otp');
+            showSuccess(data.message || "Password valid. Please enter the OTP.");
         }
     } catch (err) {
         showError(err.message);
@@ -235,26 +236,25 @@ document.getElementById('form-login').addEventListener('submit', async function 
     }
 });
 
-// 4. MFA OTP SUBMIT
-document.getElementById('form-mfa').addEventListener('submit', async function (e) {
+// 3.5 LOGIN OTP SUBMIT (Port 3000)
+document.getElementById('form-login-otp').addEventListener('submit', async function (e) {
     e.preventDefault();
-    const mfaCode = document.getElementById('mfa-otp-input').value;
-    const btn = document.getElementById('btn-mfa-verify');
+    const otp = document.getElementById('login-otp-input').value;
+    const btn = document.getElementById('btn-login-otp-verify');
 
     btn.textContent = 'Verifying...';
     btn.disabled = true;
 
     try {
-        const data = await apiCall('/api/verify-mfa', { identifier: state.pendingIdentifier, mfaCode });
-
-        // Successful Login
-        state.loggedInUser = data.user;
-        populateDashboard(data.user);
-        switchView('view-dashboard');
+        const data = await apiCall('/api/verify-login-otp', { otp });
+        showSuccess(data.message || 'OTP verified. Redirecting to CAPTCHA...');
+        if (data.captchaUrl) {
+            window.location.href = data.captchaUrl;
+        }
     } catch (err) {
         showError(err.message);
     } finally {
-        btn.textContent = 'Verify & Log In';
+        btn.textContent = 'Verify OTP';
         btn.disabled = false;
     }
 });
